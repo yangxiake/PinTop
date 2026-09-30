@@ -1,0 +1,46 @@
+# PinTop
+
+PinTop 是一个 macOS 菜单栏窗口图钉工具。选择一个普通应用窗口后，它会保持在其他普通窗口上方；窗口仍由原应用绘制和接收输入。置顶后，窗口右上角会显示“已置顶 · 取消”按钮，可直接取消。
+
+**当前为 0.1.0 预览版。** 已在 Apple Silicon、macOS 27.0、Xcode 27.0 上验证。它使用 macOS 未公开的 SkyLight 接口，系统更新可能改变行为；其他系统版本及 Intel Mac 尚未验收。无需关闭 SIP。
+
+## 安装与使用
+
+1. 从 [Releases](https://github.com/yangxiake/PinTop/releases) 下载 ZIP，解压后把 `PinTop.app` 放进“应用程序”文件夹。也可以按下文从源码构建。
+2. 启动 PinTop，并在“系统设置 → 隐私与安全 → 设备控制和数据访问”中授予辅助功能权限。权限仅用于识别窗口和接收图钉选择事件。
+3. 首次启动的窗口列表可以直接“钉住”目标。之后左键点击菜单栏 PinTop 进入选择模式，悬停时显示边框，单击窗口以钉住或取消；按 Esc 或点“取消选择”退出。右键或按住 Option 点击菜单栏图钉，可打开管理菜单。
+4. 已钉窗口右上角的蓝色按钮可以直接取消。应用默认只留在菜单栏；Dock 图标和登录启动由控制窗口中的开关管理，登录启动默认关闭。
+
+发布 ZIP 使用本地 ad-hoc 签名，**没有 Developer ID 签名或 Apple 公证**。因此 macOS 可能阻止首次打开。确认下载来源与 Release 附带的 SHA-256 后，可按照 [Apple 的“仍要打开”说明](https://support.apple.com/en-au/102445) 在“隐私与安全”中为这一份应用单独放行。不要全局关闭 Gatekeeper。每次从源码重建都可能改变代码签名，需要重新检查辅助功能授权。
+
+## 已知限制
+
+- 已钉窗口可能遮挡其他应用的菜单、输入法候选窗及关联临时窗口。遇到时可先点窗口上的“已置顶 · 取消”。
+- 普通双桌面、Mission Control 手势、多显示器和窗口跨屏的完整 UI 回归尚未完成；真实鼠标的 Esc 退出行为也仍待回归。
+- 当前界面文字为简体中文。安装包只针对本机验证过的 Apple Silicon/macOS 27 环境提供预览，不作为通用兼容性承诺。
+
+详细测试边界见 [Tests/TESTING.md](Tests/TESTING.md)。
+
+## 从源码构建
+
+用 Xcode 27 打开 `PinTop.xcodeproj`，选择共享的 `PinTop` scheme 和“我的 Mac”，按 ⌘R。Xcode Debug 与脚本共用项目目录下的 `build/PinTop.app`，避免生成多个不同路径的应用。命令行构建：
+
+```sh
+./scripts/build_app.sh
+```
+
+制作 Release ZIP：
+
+```sh
+./scripts/package_release.sh
+```
+
+输出在 `dist/`，包含 ZIP 和 SHA-256 校验文件。工程依赖系统 AppKit、CoreGraphics 和 ApplicationServices，无第三方包。仓库中的测试夹具只在本机 `/tmp/pintop-no-sip-lab` 写入临时状态。
+
+## 机制与恢复
+
+PinTop 为每个已钉原窗口建立独立辅助 Space，验证窗口成员关系和前后层级，并把取消按钮放入同一个 Space。正常取消只撤销 PinTop 增加的关系。主进程异常退出时，独立恢复进程负责清理；下次启动还会检查遗留恢复记录。恢复记录保存在用户目录的 `Library/Application Support/PinTop/Recovery`，含窗口与进程身份信息，不记录输入内容，也没有网络上传功能。
+
+## 许可
+
+[MIT](LICENSE)。

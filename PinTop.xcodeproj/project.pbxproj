@@ -1,0 +1,72 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+
+/* Begin PBXBuildFile section */
+		ACE09199F1DBF340C53968B9 /* build-App/PinTopApp.swift */ = { isa = PBXBuildFile; fileRef = C3D83AEEC11EA6F82723EC3E /* PinTopApp.swift */; };
+		41DDCF9E1B3CA249E37B1B5E /* build-Domain/PinCoordinator.swift */ = { isa = PBXBuildFile; fileRef = C895F16A5DA1D84C41C1D5E9 /* PinCoordinator.swift */; };
+		8C5FBA6ABB4847B879E58D65 /* build-Domain/WindowIdentity.swift */ = { isa = PBXBuildFile; fileRef = FD832175575F31BA0B78642B /* WindowIdentity.swift */; };
+		C0AF6C8A5971D19232449C78 /* build-Lifecycle/DesktopTopology.swift */ = { isa = PBXBuildFile; fileRef = 1BB12599891FE816972D4E90 /* DesktopTopology.swift */; };
+		97BE0E73F13E6F252B8F9C8E /* build-Lifecycle/RecoveryHelper.swift */ = { isa = PBXBuildFile; fileRef = 0379A5ABD1B609E7D175BEBA /* RecoveryHelper.swift */; };
+		E33B8880DD2853CFFB81BE37 /* build-Lifecycle/RecoveryJournal.swift */ = { isa = PBXBuildFile; fileRef = D3D03742C1C1AD110B68AF96 /* RecoveryJournal.swift */; };
+		29F2C1E9E44A8E38B77CE9B6 /* build-Platform/AXWindowCatalog.swift */ = { isa = PBXBuildFile; fileRef = CEB85C5E49AA953E305A370F /* AXWindowCatalog.swift */; };
+		E7281641C0C039B20F8CEB0A /* build-Platform/SLSBridge.swift */ = { isa = PBXBuildFile; fileRef = 5631BF387509BCE314477CEF /* SLSBridge.swift */; };
+		787A7E4356371140780BACF0 /* build-Presentation/BadgeController.swift */ = { isa = PBXBuildFile; fileRef = B2C97A03066046B845E4D3D8 /* BadgeController.swift */; };
+		CB12E09D4AB28A10C7D51001 /* build-Presentation/ControlPanelController.swift */ = { isa = PBXBuildFile; fileRef = CB12E09D4AB28A10C7D51002 /* ControlPanelController.swift */; };
+		960AC583379A0926304F2122 /* build-Selection/NeedleController.swift */ = { isa = PBXBuildFile; fileRef = 8B857B34EC4C009BA3D61258 /* NeedleController.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		C3D83AEEC11EA6F82723EC3E /* file-App/PinTopApp.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "App/PinTopApp.swift"; sourceTree = "<group>"; };
+		C895F16A5DA1D84C41C1D5E9 /* file-Domain/PinCoordinator.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Domain/PinCoordinator.swift"; sourceTree = "<group>"; };
+		FD832175575F31BA0B78642B /* file-Domain/WindowIdentity.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Domain/WindowIdentity.swift"; sourceTree = "<group>"; };
+		1BB12599891FE816972D4E90 /* file-Lifecycle/DesktopTopology.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Lifecycle/DesktopTopology.swift"; sourceTree = "<group>"; };
+		0379A5ABD1B609E7D175BEBA /* file-Lifecycle/RecoveryHelper.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Lifecycle/RecoveryHelper.swift"; sourceTree = "<group>"; };
+		D3D03742C1C1AD110B68AF96 /* file-Lifecycle/RecoveryJournal.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Lifecycle/RecoveryJournal.swift"; sourceTree = "<group>"; };
+		CEB85C5E49AA953E305A370F /* file-Platform/AXWindowCatalog.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Platform/AXWindowCatalog.swift"; sourceTree = "<group>"; };
+		5631BF387509BCE314477CEF /* file-Platform/SLSBridge.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Platform/SLSBridge.swift"; sourceTree = "<group>"; };
+		B2C97A03066046B845E4D3D8 /* file-Presentation/BadgeController.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Presentation/BadgeController.swift"; sourceTree = "<group>"; };
+		CB12E09D4AB28A10C7D51002 /* file-Presentation/ControlPanelController.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Presentation/ControlPanelController.swift"; sourceTree = "<group>"; };
+		8B857B34EC4C009BA3D61258 /* file-Selection/NeedleController.swift */ = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Selection/NeedleController.swift"; sourceTree = "<group>"; };
+		9E288A35438B1EDCEB3CA7AA /* info */ = { isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Resources/Info.plist"; sourceTree = "<group>"; };
+		E94219B04519EEC5C001A88D /* product */ = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PinTop.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		565237A00C27430E7D2E53A5 /* root */ = { isa = PBXGroup; children = ( 104F88864A847B26E3A05C88 /* PinTop */, 1BE8BB09AC968072FDA6C931 /* Products */, ); sourceTree = "<group>"; };
+		104F88864A847B26E3A05C88 /* sources */ = { isa = PBXGroup; children = ( C3D83AEEC11EA6F82723EC3E /* PinTopApp.swift */, C895F16A5DA1D84C41C1D5E9 /* PinCoordinator.swift */, FD832175575F31BA0B78642B /* WindowIdentity.swift */, 1BB12599891FE816972D4E90 /* DesktopTopology.swift */, 0379A5ABD1B609E7D175BEBA /* RecoveryHelper.swift */, D3D03742C1C1AD110B68AF96 /* RecoveryJournal.swift */, CEB85C5E49AA953E305A370F /* AXWindowCatalog.swift */, 5631BF387509BCE314477CEF /* SLSBridge.swift */, B2C97A03066046B845E4D3D8 /* BadgeController.swift */, CB12E09D4AB28A10C7D51002 /* ControlPanelController.swift */, 8B857B34EC4C009BA3D61258 /* NeedleController.swift */, 9E288A35438B1EDCEB3CA7AA /* Info.plist */, ); path = PinTop; sourceTree = "<group>"; };
+		1BE8BB09AC968072FDA6C931 /* products */ = { isa = PBXGroup; children = ( E94219B04519EEC5C001A88D /* PinTop.app */, ); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		05D2E001CB0B63D8F8C24017 /* target */ = { isa = PBXNativeTarget; buildConfigurationList = 4CC534F03BD2C2D8B6401B4B /* Build configuration list for PBXNativeTarget "PinTop" */; buildPhases = ( 2AB3E210EEC010877579E896 /* Sources */, ); buildRules = ( ); dependencies = ( ); name = PinTop; productName = PinTop; productReference = E94219B04519EEC5C001A88D /* PinTop.app */; productType = "com.apple.product-type.application"; };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		607E54C8F8E58C01D3F88D99 /* project */ = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 2700; TargetAttributes = { 05D2E001CB0B63D8F8C24017 = { CreatedOnToolsVersion = 27.0; ProvisioningStyle = Manual; }; }; }; buildConfigurationList = 3BC924372765D289693CDBFC /* Build configuration list for PBXProject "PinTop" */; compatibilityVersion = "Xcode 14.0"; developmentRegion = zh_CN; hasScannedForEncodings = 0; knownRegions = ( zh_CN, en, Base, ); mainGroup = 565237A00C27430E7D2E53A5 /* root */; productRefGroup = 1BE8BB09AC968072FDA6C931 /* Products */; projectDirPath = ""; projectRoot = ""; targets = ( 05D2E001CB0B63D8F8C24017 /* PinTop */, ); };
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2AB3E210EEC010877579E896 /* sources-phase */ = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ( ACE09199F1DBF340C53968B9 /* PinTopApp.swift in Sources */, 41DDCF9E1B3CA249E37B1B5E /* PinCoordinator.swift in Sources */, 8C5FBA6ABB4847B879E58D65 /* WindowIdentity.swift in Sources */, C0AF6C8A5971D19232449C78 /* DesktopTopology.swift in Sources */, 97BE0E73F13E6F252B8F9C8E /* RecoveryHelper.swift in Sources */, E33B8880DD2853CFFB81BE37 /* RecoveryJournal.swift in Sources */, 29F2C1E9E44A8E38B77CE9B6 /* AXWindowCatalog.swift in Sources */, E7281641C0C039B20F8CEB0A /* SLSBridge.swift in Sources */, 787A7E4356371140780BACF0 /* BadgeController.swift in Sources */, CB12E09D4AB28A10C7D51001 /* ControlPanelController.swift in Sources */, 960AC583379A0926304F2122 /* NeedleController.swift in Sources */, ); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		6C1F435FD01B2E8B49417DC7 /* project-Debug */ = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; SWIFT_OPTIMIZATION_LEVEL = -Onone; }; name = Debug; };
+		EE531C7545193086B2D2AA83 /* project-Release */ = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; MACOSX_DEPLOYMENT_TARGET = 14.0; SDKROOT = macosx; SWIFT_VERSION = 6.0; SWIFT_OPTIMIZATION_LEVEL = -O; }; name = Release; };
+		6365599A4C36550F475AA1C0 /* target-Debug */ = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)/build"; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PinTop/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = ( "$(inherited)", "@executable_path/../Frameworks", ); MACOSX_DEPLOYMENT_TARGET = 14.0; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = local.pintop.app; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = macosx; SWIFT_VERSION = 6.0; SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"; SWIFT_OPTIMIZATION_LEVEL = -Onone; }; name = Debug; };
+		21FCD7002EF4365018D7249B /* target-Release */ = { isa = XCBuildConfiguration; buildSettings = { CODE_SIGN_IDENTITY = "-"; CODE_SIGN_STYLE = Manual; CONFIGURATION_BUILD_DIR = "$(PROJECT_DIR)/build"; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PinTop/Resources/Info.plist; LD_RUNPATH_SEARCH_PATHS = ( "$(inherited)", "@executable_path/../Frameworks", ); MACOSX_DEPLOYMENT_TARGET = 14.0; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = local.pintop.app; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = macosx; SWIFT_VERSION = 6.0; SWIFT_OPTIMIZATION_LEVEL = -O; }; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3BC924372765D289693CDBFC /* project-configs */ = { isa = XCConfigurationList; buildConfigurations = ( 6C1F435FD01B2E8B49417DC7 /* Debug */, EE531C7545193086B2D2AA83 /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		4CC534F03BD2C2D8B6401B4B /* target-configs */ = { isa = XCConfigurationList; buildConfigurations = ( 6365599A4C36550F475AA1C0 /* Debug */, 21FCD7002EF4365018D7249B /* Release */, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+
+	};
+	rootObject = 607E54C8F8E58C01D3F88D99 /* Project object */;
+}
