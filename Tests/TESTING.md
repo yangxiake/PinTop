@@ -1,6 +1,6 @@
 # 测试范围
 
-本机基线：Apple Silicon、macOS 27.0、Xcode 27.0、SIP 开启。Release/Debug 可构建，应用使用本地 ad-hoc 签名。0.1.1 发布包最低系统版本为 macOS 27.0，仅含 arm64 架构；这不构成对后续系统版本的兼容承诺。窗口 ID 仅在每次运行中有效。
+本机基线：Apple Silicon、macOS 27.0、Xcode 27.0、SIP 开启。Release/Debug 可构建，应用使用本地 ad-hoc 签名。0.1.2 发布包的最低启动版本为 macOS 14.0，仅含 arm64 架构；14–26 允许尝试，但没有功能实测，不构成兼容性承诺。窗口 ID 仅在每次运行中有效。
 
 ## 已验证
 
