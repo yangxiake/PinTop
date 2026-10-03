@@ -279,6 +279,7 @@ import AppKit
         let button = NSButton(title: title, target: self, action: action)
         button.image = symbol(icon, description: title)
         button.imagePosition = .imageLeft
+        button.imageHugsTitle = true
         button.bezelStyle = .rounded
         return button
     }
