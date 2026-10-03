@@ -2,14 +2,22 @@ import AppKit
 import ApplicationServices
 
 @MainActor enum AXWindowCatalog {
-    static func displayTitle(id: UInt32) -> String {
-        let fallback = WindowCatalog.title(id: id)
-        guard let element = windowElement(id: id) else { return fallback }
+    static func windowTitle(id: UInt32) -> String {
+        let fallback = (WindowCatalog.row(id: id)?[kCGWindowName as String] as? String) ?? ""
+        guard let element = windowElement(id: id) else {
+            return fallback.isEmpty ? "授权后显示窗口标题" : fallback
+        }
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &value) == .success,
-              let title = value as? String, !title.isEmpty else { return fallback }
+              let title = value as? String, !title.isEmpty else {
+            return fallback.isEmpty ? "未命名窗口" : fallback
+        }
+        return title
+    }
+
+    static func displayTitle(id: UInt32) -> String {
         let app = (WindowCatalog.row(id: id)?[kCGWindowOwnerName as String] as? String) ?? "应用"
-        return "\(app) · \(title)"
+        return "\(app) · \(windowTitle(id: id))"
     }
 
     static func permission(prompt: Bool) -> Bool {

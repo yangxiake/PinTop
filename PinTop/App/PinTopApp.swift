@@ -321,7 +321,6 @@ import ServiceManagement
             timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     self?.coordinator?.reconcile()
-                    if let entries = self?.coordinator?.entries { self?.badges.synchronize(entries) }
                 }
             }
             NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(desktopChanged),
@@ -418,14 +417,19 @@ import ServiceManagement
         let visibleIDs = WindowCatalog.visibleOrdinary(ownPID: getpid())
             .filter { pins[$0] == nil }
         let ids = pinnedIDs + visibleIDs
-        let titles = ids.map { pins[$0]?.pin.title ?? AXWindowCatalog.displayTitle(id: $0) }
-        let counts = Dictionary(titles.map { ($0, 1) }, uniquingKeysWith: +)
-        let choices = zip(ids, titles).map { id, title in
-            let label = counts[title, default: 0] > 1 ? "\(title) · 窗口 \(id)" : title
+        let names = ids.map { id in
+            let app = (WindowCatalog.row(id: id)?[kCGWindowOwnerName as String] as? String) ?? "应用"
+            return (app, AXWindowCatalog.windowTitle(id: id))
+        }
+        let keys = names.map { "\($0.0)\u{1F}\($0.1)" }
+        let counts = Dictionary(keys.map { ($0, 1) }, uniquingKeysWith: +)
+        let choices = zip(ids, names).map { id, name in
+            let key = "\(name.0)\u{1F}\(name.1)"
+            let detail = counts[key, default: 0] > 1 ? "\(name.1) · 窗口 \(id)" : name.1
             let icon = WindowCatalog.owner(id: id).flatMap {
                 NSRunningApplication(processIdentifier: $0)?.icon
             }
-            return ControlPanelController.Choice(id: id, title: label,
+            return ControlPanelController.Choice(id: id, appName: name.0, windowTitle: detail,
                                                  pinned: pins[id] != nil, icon: icon)
         }
         let loginStatus = SMAppService.mainApp.status

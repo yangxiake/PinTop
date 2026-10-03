@@ -5,6 +5,8 @@ import AppKit
     private var attachedSpaces: [UInt32: UInt64] = [:]
     private var attachingIDs: Set<UInt32> = []
     private var failedIDs: Set<UInt32> = []
+    private var tracked: [UInt32: PinnedWindow] = [:]
+    private var geometryTimer: Timer?
     private var bridge: SLSBridge?
     var onUnpin: ((UInt32) -> Void)?
     var onError: ((UInt32, String) -> Void)?
@@ -16,6 +18,7 @@ import AppKit
 
     func synchronize(_ entries: [UInt32: PinCoordinator.Entry]) {
         guard isEnabled else { clear(); return }
+        tracked = entries.mapValues { $0.pin }
         for id in Array(panels.keys) where entries[id] == nil {
             panels[id]?.orderOut(nil)
             panels.removeValue(forKey: id)
@@ -25,23 +28,16 @@ import AppKit
         for (id, entry) in entries {
             guard entry.pin.visible,
                   let row = WindowCatalog.row(id: id),
-                  let bounds = row[kCGWindowBounds as String] as? [String: Any],
-                  let x = bounds["X"] as? Double, let y = bounds["Y"] as? Double,
-                  let width = bounds["Width"] as? Double,
-                  let main = NSScreen.screens.first else {
+                  let frame = frame(for: row) else {
                 panels[id]?.orderOut(nil)
                 continue
             }
-            let badgeWidth = max(66, min(136, width - 12))
-            let frame = NSRect(x: x + max(6, width - badgeWidth - 8),
-                               y: main.frame.maxY - y - 32,
-                               width: badgeWidth, height: 28)
             let panel = panels[id] ?? makePanel(id: id, frame: frame)
-            panel.setFrame(frame, display: true)
-            if let button = panel.contentView as? NSButton {
-                button.title = badgeWidth < 110 ? "取消" : "已置顶 · 取消"
+            if panel.frame != frame { panel.setFrame(frame, display: true) }
+            if let button = button(in: panel) {
+                button.title = frame.width < 108 ? "取消" : "已置顶 · 取消"
             }
-            panel.orderFrontRegardless()
+            if !panel.isVisible { panel.orderFrontRegardless() }
             if attachedSpaces[id] != entry.pin.auxiliarySpace && !attachingIDs.contains(id) && !failedIDs.contains(id) {
                 attachingIDs.insert(id)
                 defer { attachingIDs.remove(id) }
@@ -55,6 +51,62 @@ import AppKit
                 }
             }
         }
+        refreshGeometry()
+        if tracked.isEmpty { stopGeometryTimer() }
+        else { startGeometryTimer() }
+    }
+
+    private func startGeometryTimer() {
+        guard geometryTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshGeometry() }
+        }
+        timer.tolerance = 0.002
+        RunLoop.main.add(timer, forMode: .common)
+        geometryTimer = timer
+    }
+
+    private func stopGeometryTimer() {
+        geometryTimer?.invalidate()
+        geometryTimer = nil
+    }
+
+    private func refreshGeometry() {
+        guard !tracked.isEmpty else { return }
+        let rows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], 0) as? [[String: Any]] ?? []
+        let visible = Dictionary(rows.compactMap { row -> (UInt32, [String: Any])? in
+            guard let id = (row[kCGWindowNumber as String] as? NSNumber)?.uint32Value,
+                  tracked[id] != nil else { return nil }
+            return (id, row)
+        }, uniquingKeysWith: { first, _ in first })
+        for (id, panel) in panels {
+            guard tracked[id]?.visible == true,
+                  let row = visible[id], let targetFrame = frame(for: row) else {
+                if panel.isVisible { panel.orderOut(nil) }
+                continue
+            }
+            if panel.frame != targetFrame { panel.setFrame(targetFrame, display: true) }
+            if let button = button(in: panel) {
+                let title = targetFrame.width < 108 ? "取消" : "已置顶 · 取消"
+                if button.title != title { button.title = title }
+            }
+            if !panel.isVisible { panel.orderFrontRegardless() }
+        }
+    }
+
+    private func frame(for row: [String: Any]) -> NSRect? {
+        guard let bounds = row[kCGWindowBounds as String] as? [String: Any],
+              let x = bounds["X"] as? Double, let y = bounds["Y"] as? Double,
+              let width = bounds["Width"] as? Double,
+              let main = NSScreen.screens.first else { return nil }
+        let badgeWidth = max(56, min(132, width - 12))
+        return NSRect(x: x + width - badgeWidth - 8,
+                      y: main.frame.maxY - y - 34,
+                      width: badgeWidth, height: 30)
+    }
+
+    private func button(in panel: NSPanel) -> NSButton? {
+        panel.contentView?.subviews.first(where: { $0 is NSButton }) as? NSButton
     }
 
     private func attach(_ panel: NSPanel, to space: UInt64, above target: UInt32) throws {
@@ -86,16 +138,26 @@ import AppKit
     private func makePanel(id: UInt32, frame: NSRect) -> NSPanel {
         let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel],
                             backing: .buffered, defer: false)
-        panel.backgroundColor = .controlAccentColor
-        panel.isOpaque = true
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
         panel.hasShadow = true
         panel.level = .statusBar
         panel.collectionBehavior = [.transient]
+        let material = NSVisualEffectView(frame: NSRect(origin: .zero, size: frame.size))
+        material.material = .popover
+        material.blendingMode = .behindWindow
+        material.state = .active
+        material.wantsLayer = true
+        material.layer?.cornerRadius = 9
+        material.layer?.masksToBounds = true
+        material.layer?.borderWidth = 1
+        material.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.65).cgColor
+        material.autoresizingMask = [.width, .height]
         let button = NSButton(frame: NSRect(origin: .zero, size: frame.size))
         button.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "已置顶")
         button.imagePosition = .imageLeft
         button.isBordered = false
-        button.contentTintColor = .white
+        button.contentTintColor = .labelColor
         button.font = .systemFont(ofSize: 12, weight: .semibold)
         button.title = "已置顶 · 取消"
         button.autoresizingMask = [.width, .height]
@@ -103,7 +165,8 @@ import AppKit
         button.target = self
         button.action = #selector(clicked(_:))
         button.tag = Int(id)
-        panel.contentView = button
+        material.addSubview(button)
+        panel.contentView = material
         panels[id] = panel
         return panel
     }
@@ -113,9 +176,12 @@ import AppKit
     }
 
     func clear() {
+        stopGeometryTimer()
         for panel in panels.values { panel.orderOut(nil) }
         panels.removeAll()
         attachedSpaces.removeAll()
+        attachingIDs.removeAll()
         failedIDs.removeAll()
+        tracked.removeAll()
     }
 }
