@@ -16,3 +16,5 @@
 实体键盘 Esc 仍未单独复核。图形自动化发出的 Esc 未进入全局事件捕获，不能据此判定实体按键行为。一次对系统设置窗口快速再次置顶返回“恢复进程未就绪”，安全回滚后无已钉窗口；稳定的临时 AppKit 窗口置顶与取消均通过。登录时打开未通过重新登录实测，多显示器及多桌面未在本轮 UI 回归中复测。
 
 代码审查：移除了旧主面板的自绘行/按钮布局、设置页的返回与退出按钮、未读取的 `AXTrustedAtLaunch` 偏好、无调用的 `SettingsPanelController.hide()`、`PinTopButton` 中仅供旧面板使用的 primary/secondary 样式分支。`PinTopButton` 仍由跨应用的窗口角标使用；窗口扫描、Space 管理、恢复 helper、置顶角标和针模式模块均仍有实际调用。Debug 专用的诊断命令保留在条件编译中，不进入 Release。
+
+补充复核（2026-10-04）：上段关于诊断命令“不进入 Release”的结论不成立。虽然代码使用 `#if DEBUG`，当前 `PinTop.xcodeproj/project.pbxproj` 的 Release 配置也显式设置 `SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)"`，因此这些入口仍会被编译进 Release。本次文档整理保留历史原文并纠正结论，未修改构建配置。详见 [仓库文档复核](audit-2026-10-04-documentation.md)。
