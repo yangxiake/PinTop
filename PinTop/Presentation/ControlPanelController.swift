@@ -25,6 +25,7 @@ import AppKit
     var onUnpinAll: (() -> Void)?
     var onRefresh: (() -> Void)?
     var onRequestPermission: (() -> Void)?
+    var onQuit: (() -> Void)?
     var onBadgeChange: ((Bool) -> Void)?
     var onDockChange: ((Bool) -> Void)?
     var onLoginChange: ((Bool) -> Void)?
@@ -204,7 +205,12 @@ import AppKit
         let warning = NSTextField(labelWithString: "已钉窗口可能遮挡其他应用的菜单或输入法候选窗")
         warning.font = .systemFont(ofSize: 11)
         warning.textColor = .secondaryLabelColor
-        let footer = NSStackView(views: [warningIcon, warning])
+        let footerSpacer = NSView()
+        let quit = actionButton("退出程序", icon: "power", action: #selector(quit))
+        quit.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
+        quit.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
+        quit.toolTip = "退出 PinTop 并取消所有置顶"
+        let footer = NSStackView(views: [warningIcon, warning, footerSpacer, quit])
         footer.alignment = .centerY
         footer.spacing = 7
         addWide(footer, to: root)
@@ -285,6 +291,8 @@ import AppKit
         button.image = PinTopButton.symbol(icon, description: title)
         return button
     }
+
+    @objc private func quit() { onQuit?() }
 
     private func symbol(_ name: String, description: String) -> NSImage? {
         NSImage(systemSymbolName: name, accessibilityDescription: description)

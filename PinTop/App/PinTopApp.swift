@@ -214,7 +214,7 @@ import ServiceManagement
                 app.finishLaunching()
                 let alert = NSAlert()
                 alert.messageText = "PinTop 已在运行"
-                alert.informativeText = "请先从现有 PinTop 的菜单中退出，再启动这份构建。"
+                alert.informativeText = "请在程序坞点按正在运行的 PinTop，或点按菜单栏中的 PinTop 打开控制窗口；窗口右下角可以退出程序。"
                 alert.runModal()
                 return
             }
@@ -243,7 +243,7 @@ import ServiceManagement
             self.coordinator = coordinator
             badges.configure(bridge: try SLSBridge())
             badges.isEnabled = (UserDefaults.standard.object(forKey: "ShowPinBadges") as? Bool) ?? true
-            if UserDefaults.standard.bool(forKey: "ShowDockIcon") {
+            if (UserDefaults.standard.object(forKey: "ShowDockIcon") as? Bool) ?? true {
                 _ = NSApp.setActivationPolicy(.regular)
             }
             UserDefaults.standard.set(AXWindowCatalog.permission(prompt: false), forKey: "AXTrustedAtLaunch")
@@ -290,6 +290,7 @@ import ServiceManagement
                 _ = AXWindowCatalog.permission(prompt: true)
                 self?.refreshPanel()
             }
+            controlPanel.onQuit = { NSApp.terminate(nil) }
             controlPanel.onBadgeChange = { [weak self] enabled in
                 UserDefaults.standard.set(enabled, forKey: "ShowPinBadges")
                 self?.badges.isEnabled = enabled
@@ -313,7 +314,7 @@ import ServiceManagement
             item.button?.image = NSImage(systemSymbolName: "pin", accessibilityDescription: "PinTop")
             item.button?.imagePosition = .imageLeft
             item.button?.title = "PinTop"
-            item.button?.toolTip = "PinTop · 窗口置顶"
+            item.button?.toolTip = "PinTop · 点按打开窗口列表，右键显示菜单"
             item.button?.target = self
             item.button?.action = #selector(statusClicked)
             item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
@@ -327,10 +328,7 @@ import ServiceManagement
                                                                name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
             NotificationCenter.default.addObserver(self, selector: #selector(desktopChanged),
                                                    name: NSApplication.didChangeScreenParametersNotification, object: nil)
-            if !UserDefaults.standard.bool(forKey: "PinTopControlPanelShown") {
-                showPanel()
-                UserDefaults.standard.set(true, forKey: "PinTopControlPanelShown")
-            }
+            showPanel()
         } catch { showError("PinTop 无法启动：\(error.localizedDescription)") }
     }
 
@@ -349,10 +347,7 @@ import ServiceManagement
                 button.performClick(nil)
                 button.menu = nil
             }
-        } else {
-            do { try needle?.start() }
-            catch { showError(error.localizedDescription) }
-        }
+        } else { showPanel() }
     }
 
     private func rebuildMenu() {
