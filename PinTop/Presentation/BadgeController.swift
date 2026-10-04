@@ -154,7 +154,6 @@ import AppKit
         material.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.65).cgColor
         material.autoresizingMask = [.width, .height]
         let button = PinTopButton(frame: NSRect(origin: .zero, size: frame.size))
-        button.style = .badge
         button.image = PinTopButton.symbol("pin.fill", description: "已置顶")
         button.title = "取消置顶"
         button.autoresizingMask = [.width, .height]

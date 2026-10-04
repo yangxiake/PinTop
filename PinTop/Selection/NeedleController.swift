@@ -132,26 +132,36 @@ import ApplicationServices
 
     private func showHint() {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let frame = NSRect(x: screen.visibleFrame.midX - 160,
+        let frame = NSRect(x: screen.visibleFrame.midX - 170,
                            y: screen.visibleFrame.maxY - 54,
-                           width: 320, height: 38)
+                           width: 340, height: 40)
         if selectionHint == nil {
             let panel = NSPanel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel],
                                 backing: .buffered, defer: false)
-            panel.backgroundColor = .controlAccentColor
-            panel.isOpaque = true
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
             panel.hasShadow = true
             panel.level = .statusBar
             panel.collectionBehavior = [.canJoinAllSpaces, .transient]
-            let view = NSView(frame: NSRect(origin: .zero, size: frame.size))
-            let label = NSTextField(labelWithString: "📌 点击窗口以钉住 · Esc 退出")
-            label.textColor = .white
-            label.font = .systemFont(ofSize: 12, weight: .semibold)
-            label.frame = NSRect(x: 12, y: 10, width: 210, height: 18)
+            let view = NSVisualEffectView(frame: NSRect(origin: .zero, size: frame.size))
+            view.material = .popover
+            view.blendingMode = .behindWindow
+            view.state = .active
+            view.wantsLayer = true
+            view.layer?.cornerRadius = 8
+            view.layer?.masksToBounds = true
+            let pin = NSImageView(image: NSImage(systemSymbolName: "pin", accessibilityDescription: "选择窗口") ?? NSImage())
+            pin.contentTintColor = .controlAccentColor
+            pin.frame = NSRect(x: 12, y: 12, width: 16, height: 16)
+            view.addSubview(pin)
+            let label = NSTextField(labelWithString: "点按窗口以置顶 · Esc 退出")
+            label.font = .systemFont(ofSize: 12)
+            label.frame = NSRect(x: 36, y: 11, width: 210, height: 18)
             view.addSubview(label)
             let cancel = NSButton(title: "取消选择", target: self, action: #selector(cancelSelection))
-            cancel.frame = NSRect(x: 230, y: 5, width: 80, height: 28)
+            cancel.frame = NSRect(x: 250, y: 8, width: 78, height: 24)
             cancel.bezelStyle = .rounded
+            cancel.controlSize = .small
             view.addSubview(cancel)
             panel.contentView = view
             selectionHint = panel

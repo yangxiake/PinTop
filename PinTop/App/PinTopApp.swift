@@ -37,6 +37,7 @@ import ServiceManagement
             }
             return
         }
+        #if DEBUG
         if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--probe-needle" {
             app.finishLaunching()
             let trusted = AXWindowCatalog.permission(prompt: false)
@@ -209,12 +210,13 @@ import ServiceManagement
                 exit(0)
             } catch { fputs("SUSPEND ERROR: \(error)\n", stderr); exit(1) }
         }
+        #endif
         do {
             guard try StartupLock.acquire() else {
                 app.finishLaunching()
                 let alert = NSAlert()
                 alert.messageText = "PinTop 已在运行"
-                alert.informativeText = "请在程序坞点按正在运行的 PinTop，或点按菜单栏中的 PinTop 打开控制窗口；窗口右下角可以退出程序。"
+                alert.informativeText = "请从程序坞或菜单栏打开正在运行的 PinTop。可通过 PinTop 菜单或 ⌘Q 退出。"
                 alert.runModal()
                 return
             }
@@ -236,6 +238,7 @@ import ServiceManagement
     private var needle: NeedleController?
     private let badges = BadgeController()
     private let controlPanel = ControlPanelController()
+    private let settingsPanel = SettingsPanelController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -246,7 +249,6 @@ import ServiceManagement
             if (UserDefaults.standard.object(forKey: "ShowDockIcon") as? Bool) ?? true {
                 _ = NSApp.setActivationPolicy(.regular)
             }
-            UserDefaults.standard.set(AXWindowCatalog.permission(prompt: false), forKey: "AXTrustedAtLaunch")
             do {
                 let recoveryProblems = try RecoveryHelper.recoverAbandoned()
                 if !recoveryProblems.isEmpty {
@@ -283,32 +285,33 @@ import ServiceManagement
             }
             coordinator.onError = { [weak self] message in self?.showError(message) }
             controlPanel.onToggle = { [weak self] id in self?.toggleFromPanel(id) }
-            controlPanel.onStartNeedle = { [weak self] in self?.startNeedleFromPanel() }
+            controlPanel.onStartNeedle = { [weak self] in self?.startNeedle() }
             controlPanel.onUnpinAll = { [weak self] in self?.coordinator?.unpinAll() }
             controlPanel.onRefresh = { [weak self] in self?.refreshPanel() }
             controlPanel.onRequestPermission = { [weak self] in
                 _ = AXWindowCatalog.permission(prompt: true)
                 self?.refreshPanel()
             }
-            controlPanel.onQuit = { NSApp.terminate(nil) }
-            controlPanel.onBadgeChange = { [weak self] enabled in
+            controlPanel.onShowSettings = { [weak self] in self?.showSettings() }
+            settingsPanel.onBadgeChange = { [weak self] enabled in
                 UserDefaults.standard.set(enabled, forKey: "ShowPinBadges")
                 self?.badges.isEnabled = enabled
                 self?.badges.synchronize(coordinator.entries)
             }
-            controlPanel.onDockChange = { [weak self] enabled in
+            settingsPanel.onDockChange = { [weak self] enabled in
                 if NSApp.setActivationPolicy(enabled ? .regular : .accessory) {
                     UserDefaults.standard.set(enabled, forKey: "ShowDockIcon")
                 }
                 self?.refreshPanel()
             }
-            controlPanel.onLoginChange = { [weak self] enabled in
+            settingsPanel.onLoginChange = { [weak self] enabled in
                 do {
                     if enabled { try SMAppService.mainApp.register() }
                     else { try SMAppService.mainApp.unregister() }
                 } catch { self?.showError("开机启动设置失败：\(error.localizedDescription)") }
                 self?.refreshPanel()
             }
+            buildMainMenu()
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             statusItem = item
             item.button?.image = NSImage(systemSymbolName: "pin", accessibilityDescription: "PinTop")
@@ -353,7 +356,7 @@ import ServiceManagement
     private func rebuildMenu() {
         guard let item = statusItem else { return }
         let menu = NSMenu()
-        let select = NSMenuItem(title: "用图钉选择窗口", action: #selector(startNeedle), keyEquivalent: "")
+        let select = NSMenuItem(title: "添加窗口…", action: #selector(startNeedle), keyEquivalent: "")
         select.target = self
         menu.addItem(select)
         let permission = NSMenuItem(title: AXWindowCatalog.permission(prompt: false) ?
@@ -366,6 +369,9 @@ import ServiceManagement
         let panel = NSMenuItem(title: "打开窗口列表…", action: #selector(showPanel), keyEquivalent: "")
         panel.target = self
         menu.addItem(panel)
+        let settings = NSMenuItem(title: "设置…", action: #selector(showSettings), keyEquivalent: "")
+        settings.target = self
+        menu.addItem(settings)
         menu.addItem(.separator())
         if let coordinator {
             for entry in coordinator.entries.values.sorted(by: { $0.pin.title < $1.pin.title }) {
@@ -382,7 +388,7 @@ import ServiceManagement
             }
         }
         menu.addItem(.separator())
-        let all = NSMenuItem(title: "全部取消", action: #selector(unpinAll), keyEquivalent: "")
+        let all = NSMenuItem(title: "全部取消置顶", action: #selector(unpinAll), keyEquivalent: "")
         all.target = self
         all.isEnabled = !(coordinator?.entries.isEmpty ?? true)
         menu.addItem(all)
@@ -398,13 +404,62 @@ import ServiceManagement
     }
 
     @objc private func startNeedle() {
-        do { try needle?.start() } catch { showError(error.localizedDescription) }
+        controlPanel.hide()
+        do { try needle?.start() }
+        catch {
+            showError(error.localizedDescription)
+            showPanel()
+        }
     }
 
     @objc private func showPanel() {
         refreshPanel()
         controlPanel.show()
     }
+
+    @objc private func showSettings() {
+        refreshPanel()
+        settingsPanel.show()
+    }
+
+    private func buildMainMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "PinTop")
+        let settings = NSMenuItem(title: "设置…", action: #selector(showSettings), keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(settings)
+        appMenu.addItem(.separator())
+        let quitItem = NSMenuItem(title: "退出 PinTop", action: #selector(quit), keyEquivalent: "q")
+        quitItem.target = self
+        appMenu.addItem(quitItem)
+        main.addItem(appItem)
+        appItem.submenu = appMenu
+
+        let fileItem = NSMenuItem()
+        let fileMenu = NSMenu(title: "文件")
+        let add = NSMenuItem(title: "添加窗口…", action: #selector(startNeedle), keyEquivalent: "n")
+        add.target = self
+        fileMenu.addItem(add)
+        let close = NSMenuItem(title: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        fileMenu.addItem(close)
+        main.addItem(fileItem)
+        fileItem.submenu = fileMenu
+
+        let viewItem = NSMenuItem()
+        let viewMenu = NSMenu(title: "显示")
+        let refresh = NSMenuItem(title: "刷新窗口列表", action: #selector(refreshFromMenu), keyEquivalent: "r")
+        refresh.target = self
+        viewMenu.addItem(refresh)
+        let unpin = NSMenuItem(title: "全部取消置顶", action: #selector(unpinAll), keyEquivalent: "")
+        unpin.target = self
+        viewMenu.addItem(unpin)
+        main.addItem(viewItem)
+        viewItem.submenu = viewMenu
+        NSApp.mainMenu = main
+    }
+
+    @objc private func refreshFromMenu() { refreshPanel() }
 
     private func refreshPanel() {
         let pins = coordinator?.entries ?? [:]
@@ -429,15 +484,10 @@ import ServiceManagement
         }
         let loginStatus = SMAppService.mainApp.status
         let loginEnabled = loginStatus == .enabled || loginStatus == .requiresApproval
-        controlPanel.update(permission: AXWindowCatalog.permission(prompt: false), choices: choices,
-                            badge: badges.isEnabled,
-                            dock: NSApp.activationPolicy() == .regular,
-                            login: loginEnabled)
-    }
-
-    private func startNeedleFromPanel() {
-        controlPanel.hide()
-        startNeedle()
+        controlPanel.update(permission: AXWindowCatalog.permission(prompt: false), choices: choices)
+        settingsPanel.update(badge: badges.isEnabled,
+                             dock: NSApp.activationPolicy() == .regular,
+                             login: loginEnabled)
     }
 
     private func toggleFromPanel(_ id: UInt32) {

@@ -1,6 +1,6 @@
 import AppKit
 
-@MainActor final class ControlPanelController: NSObject {
+@MainActor final class ControlPanelController: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSToolbarDelegate {
     struct Choice {
         let id: UInt32
         let appName: String
@@ -9,312 +9,329 @@ import AppKit
         let icon: NSImage?
     }
 
+    private enum ToolbarID {
+        static let add = NSToolbarItem.Identifier("addWindow")
+        static let refresh = NSToolbarItem.Identifier("refreshWindows")
+        static let more = NSToolbarItem.Identifier("moreActions")
+        static let settings = NSToolbarItem.Identifier("settings")
+    }
+
     private let window: NSWindow
-    private let windowList = NSStackView()
-    private let listScroll = NSScrollView()
-    private var listHeightConstraint: NSLayoutConstraint?
-    private let permissionButton = PinTopButton(frame: .zero)
+    private let table = NSTableView()
+    private let scrollView = NSScrollView()
     private let countLabel = NSTextField(labelWithString: "")
-    private let unpinAllButton = PinTopButton(frame: .zero)
-    private let badgeSwitch = NSSwitch()
-    private let dockSwitch = NSSwitch()
-    private let loginSwitch = NSSwitch()
+    private let permissionLabel = NSTextField(labelWithString: "")
+    private let permissionButton = NSButton(title: "授权…", target: nil, action: nil)
+    private let statusIcon = NSImageView()
+    private let emptyView = NSStackView()
+    private var choices: [Choice] = []
+    private var didSetInitialSize = false
 
     var onToggle: ((UInt32) -> Void)?
     var onStartNeedle: (() -> Void)?
     var onUnpinAll: (() -> Void)?
     var onRefresh: (() -> Void)?
     var onRequestPermission: (() -> Void)?
-    var onQuit: (() -> Void)?
-    var onBadgeChange: ((Bool) -> Void)?
-    var onDockChange: ((Bool) -> Void)?
-    var onLoginChange: ((Bool) -> Void)?
+    var onShowSettings: (() -> Void)?
 
     override init() {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 590),
-                          styleMask: [.titled, .closable, .miniaturizable],
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 350),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
                           backing: .buffered, defer: false)
         super.init()
         window.title = "PinTop"
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
+        window.minSize = NSSize(width: 440, height: 260)
         window.center()
         buildContent()
+        buildToolbar()
     }
-
-    var isVisible: Bool { window.isVisible }
 
     func show() {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    func hide() { window.orderOut(nil) }
+    func hide() { window.close() }
 
-    func update(permission: Bool, choices: [Choice], badge: Bool, dock: Bool, login: Bool) {
-        permissionButton.title = permission ? "已授权" : "需要授权"
-        permissionButton.image = PinTopButton.symbol(permission ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
-                                                    description: "辅助功能权限")
-        permissionButton.foregroundColor = permission ? .systemGreen : .systemOrange
-        badgeSwitch.state = badge ? .on : .off
-        dockSwitch.state = dock ? .on : .off
-        loginSwitch.state = login ? .on : .off
-        let pinnedCount = choices.filter(\.pinned).count
-        countLabel.stringValue = "\(pinnedCount) 个已置顶 · \(choices.count) 个窗口"
-        unpinAllButton.isEnabled = pinnedCount > 0
-        listHeightConstraint?.constant = min(220, max(120, CGFloat(choices.count) * 58))
+    func update(permission: Bool, choices: [Choice]) {
+        self.choices = choices
+        let pinned = choices.filter(\.pinned).count
+        countLabel.stringValue = "\(choices.count) 个窗口 · \(pinned) 个已置顶"
+        permissionLabel.stringValue = permission ? "辅助功能权限已开启" : "需要辅助功能权限"
+        permissionLabel.textColor = permission ? .secondaryLabelColor : .labelColor
+        statusIcon.image = symbol(permission ? "checkmark.circle.fill" : "exclamationmark.triangle",
+                                  description: "辅助功能权限")
+        statusIcon.contentTintColor = permission ? .systemGreen : .systemOrange
+        permissionButton.isHidden = permission
+        if !didSetInitialSize {
+            let height = max(260, min(430, 125 + 55 * choices.count))
+            window.setContentSize(NSSize(width: 520, height: height))
+            didSetInitialSize = true
+        }
+        table.reloadData()
+        emptyView.isHidden = !choices.isEmpty
+        scrollView.isHidden = choices.isEmpty
+    }
 
-        for view in windowList.arrangedSubviews {
-            windowList.removeArrangedSubview(view)
-            view.removeFromSuperview()
+    private func buildToolbar() {
+        let toolbar = NSToolbar(identifier: "PinTop.MainToolbar")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        toolbar.allowsUserCustomization = false
+        window.toolbar = toolbar
+        window.toolbarStyle = .unifiedCompact
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [ToolbarID.add, ToolbarID.refresh, .flexibleSpace, ToolbarID.more, ToolbarID.settings]
+    }
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarAllowedItemIdentifiers(toolbar)
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        item.target = self
+        switch identifier {
+        case ToolbarID.add:
+            item.label = "添加窗口…"
+            item.paletteLabel = item.label
+            item.toolTip = "选择一个窗口置顶 (⌘N)"
+            let button = NSButton(title: item.label, target: self, action: #selector(startNeedle))
+            button.image = symbol("plus", description: item.label)
+            button.imagePosition = .imageLeft
+            button.bezelStyle = .rounded
+            button.controlSize = .regular
+            button.bezelColor = .controlAccentColor
+            button.contentTintColor = .white
+            button.toolTip = item.toolTip
+            button.frame = NSRect(x: 0, y: 0, width: 126, height: 28)
+            item.view = button
+        case ToolbarID.refresh:
+            item.label = "刷新"
+            item.toolTip = "刷新窗口列表 (⌘R)"
+            item.image = symbol("arrow.clockwise", description: item.label)
+            item.action = #selector(refresh)
+        case ToolbarID.more:
+            item.label = "更多"
+            item.toolTip = "更多操作"
+            item.image = symbol("ellipsis.circle", description: item.label)
+            item.action = #selector(showMore(_:))
+        case ToolbarID.settings:
+            item.label = "设置"
+            item.toolTip = "设置 (⌘,)"
+            item.image = symbol("gearshape", description: item.label)
+            item.action = #selector(showSettings)
+        default:
+            return nil
         }
-        if choices.isEmpty {
-            let empty = NSTextField(labelWithString: "当前桌面没有可置顶的普通窗口")
-            empty.textColor = .secondaryLabelColor
-            empty.alignment = .center
-            empty.frame = NSRect(x: 0, y: 0, width: 512, height: 58)
-            windowList.addArrangedSubview(empty)
-        } else {
-            for choice in choices { windowList.addArrangedSubview(makeRow(choice)) }
-        }
-        windowList.setFrameSize(NSSize(width: 512,
-                                        height: max(220, CGFloat(max(choices.count, 1)) * 58)))
-        windowList.needsLayout = true
-        window.contentView?.layoutSubtreeIfNeeded()
-        let top = windowList.isFlipped ? 0 : max(0, windowList.bounds.height - listScroll.contentView.bounds.height)
-        listScroll.contentView.scroll(to: NSPoint(x: 0, y: top))
-        listScroll.reflectScrolledClipView(listScroll.contentView)
+        return item
     }
 
     private func buildContent() {
         guard let content = window.contentView else { return }
-        let root = NSStackView()
-        root.orientation = .vertical
-        root.alignment = .leading
-        root.spacing = 12
+        let root = NSView()
         root.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(root)
         NSLayoutConstraint.activate([
-            root.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 24),
-            root.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -24),
-            root.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
+            root.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 22),
+            root.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -22),
+            root.topAnchor.constraint(equalTo: content.topAnchor, constant: 14),
             root.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -18)
         ])
 
-        let mark = NSView()
-        mark.translatesAutoresizingMaskIntoConstraints = false
-        mark.wantsLayer = true
-        mark.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
-        mark.layer?.cornerRadius = 11
-        let pin = imageView("pin.fill", size: 22, color: .white)
-        mark.addSubview(pin)
-        NSLayoutConstraint.activate([
-            mark.widthAnchor.constraint(equalToConstant: 44),
-            mark.heightAnchor.constraint(equalToConstant: 44),
-            pin.centerXAnchor.constraint(equalTo: mark.centerXAnchor),
-            pin.centerYAnchor.constraint(equalTo: mark.centerYAnchor)
-        ])
-
-        let title = NSTextField(labelWithString: "PinTop")
-        title.font = .systemFont(ofSize: 21, weight: .bold)
-        let subtitle = NSTextField(labelWithString: "让重要窗口留在眼前")
-        subtitle.font = .systemFont(ofSize: 12)
-        subtitle.textColor = .secondaryLabelColor
-        let titleStack = NSStackView(views: [title, subtitle])
-        titleStack.orientation = .vertical
-        titleStack.alignment = .leading
-        titleStack.spacing = 2
-        let headerSpacer = NSView()
-        permissionButton.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
-        permissionButton.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
+        statusIcon.translatesAutoresizingMaskIntoConstraints = false
+        statusIcon.widthAnchor.constraint(equalToConstant: 14).isActive = true
+        statusIcon.heightAnchor.constraint(equalToConstant: 14).isActive = true
+        permissionLabel.font = .systemFont(ofSize: 12)
+        permissionButton.bezelStyle = .rounded
+        permissionButton.controlSize = .small
         permissionButton.target = self
         permissionButton.action = #selector(requestPermission)
-        let header = NSStackView(views: [mark, titleStack, headerSpacer, permissionButton])
-        header.alignment = .centerY
-        header.spacing = 12
-        addWide(header, to: root)
+        permissionButton.setContentHuggingPriority(.required, for: .horizontal)
+        let permissionRow = NSStackView(views: [statusIcon, permissionLabel, permissionButton, NSView()])
+        permissionRow.orientation = .horizontal
+        permissionRow.alignment = .centerY
+        permissionRow.spacing = 7
+        permissionRow.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(permissionRow)
+        NSLayoutConstraint.activate([
+            permissionRow.topAnchor.constraint(equalTo: root.topAnchor),
+            permissionRow.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            permissionRow.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            permissionRow.heightAnchor.constraint(equalToConstant: 26)
+        ])
 
-        let choose = actionButton("选择窗口", icon: "pin.fill", action: #selector(startNeedle))
-        choose.style = .primary
-        choose.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
-        choose.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
-        let refresh = actionButton("刷新", icon: "arrow.clockwise", action: #selector(refresh))
-        refresh.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
-        refresh.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
-        unpinAllButton.title = "全部取消"
-        unpinAllButton.image = PinTopButton.symbol("pin.slash", description: "取消置顶")
-        unpinAllButton.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
-        unpinAllButton.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
-        unpinAllButton.target = self
-        unpinAllButton.action = #selector(unpinAll)
-        let actionSpacer = NSView()
-        let actions = NSStackView(views: [choose, refresh, actionSpacer, unpinAllButton])
-        actions.alignment = .centerY
-        actions.spacing = 8
-        addWide(actions, to: root)
-
-        let listTitle = NSTextField(labelWithString: "窗口")
-        listTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        let heading = NSTextField(labelWithString: "窗口")
+        heading.font = .systemFont(ofSize: 13, weight: .semibold)
         countLabel.font = .systemFont(ofSize: 11)
         countLabel.textColor = .secondaryLabelColor
-        let listSpacer = NSView()
-        let listHeader = NSStackView(views: [listTitle, listSpacer, countLabel])
-        listHeader.alignment = .centerY
-        addWide(listHeader, to: root)
+        let sectionHeader = NSStackView(views: [heading, NSView(), countLabel])
+        sectionHeader.orientation = .horizontal
+        sectionHeader.alignment = .centerY
+        sectionHeader.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(sectionHeader)
+        NSLayoutConstraint.activate([
+            sectionHeader.topAnchor.constraint(equalTo: permissionRow.bottomAnchor, constant: 16),
+            sectionHeader.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            sectionHeader.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            sectionHeader.heightAnchor.constraint(equalToConstant: 18)
+        ])
 
-        listScroll.hasVerticalScroller = true
-        listScroll.drawsBackground = true
-        listScroll.backgroundColor = .controlBackgroundColor
-        listScroll.wantsLayer = true
-        listScroll.layer?.cornerRadius = 11
-        listScroll.layer?.masksToBounds = true
-        listScroll.layer?.borderWidth = 1
-        listScroll.layer?.borderColor = NSColor.separatorColor.cgColor
-        windowList.orientation = .vertical
-        windowList.alignment = .leading
-        windowList.spacing = 0
-        windowList.frame = NSRect(x: 0, y: 0, width: 512, height: 220)
-        listScroll.documentView = windowList
-        addWide(listScroll, to: root)
-        listHeightConstraint = listScroll.heightAnchor.constraint(equalToConstant: 220)
-        listHeightConstraint?.isActive = true
+        let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("window"))
+        column.resizingMask = .autoresizingMask
+        table.addTableColumn(column)
+        table.headerView = nil
+        table.rowHeight = 55
+        table.intercellSpacing = .zero
+        table.selectionHighlightStyle = .none
+        table.backgroundColor = .clear
+        table.dataSource = self
+        table.delegate = self
+        table.target = self
+        table.doubleAction = #selector(doubleClickRow)
+        scrollView.documentView = table
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .legacy
+        scrollView.borderType = .bezelBorder
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(scrollView)
+        NSLayoutConstraint.activate([
+            scrollView.topAnchor.constraint(equalTo: sectionHeader.bottomAnchor, constant: 8),
+            scrollView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: root.bottomAnchor)
+        ])
 
-        let settingsTitle = NSTextField(labelWithString: "偏好设置")
-        settingsTitle.font = .systemFont(ofSize: 13, weight: .semibold)
-        let settingsIcon = imageView("gearshape", size: 14, color: .secondaryLabelColor)
-        let settingsHeader = NSStackView(views: [settingsIcon, settingsTitle])
-        settingsHeader.alignment = .centerY
-        settingsHeader.spacing = 7
-        addWide(settingsHeader, to: root)
-
-        badgeSwitch.target = self
-        badgeSwitch.action = #selector(changeBadge)
-        dockSwitch.target = self
-        dockSwitch.action = #selector(changeDock)
-        loginSwitch.target = self
-        loginSwitch.action = #selector(changeLogin)
-        let settings = NSStackView(views: [settingRow("窗口取消角标", icon: "pin.circle", control: badgeSwitch),
-                                            settingRow("在程序坞显示", icon: "dock.rectangle", control: dockSwitch),
-                                            settingRow("登录时启动", icon: "power", control: loginSwitch)])
-        settings.orientation = .vertical
-        settings.alignment = .leading
-        settings.spacing = 5
-        addWide(settings, to: root)
-
-        let warningIcon = imageView("exclamationmark.triangle", size: 13, color: .systemOrange)
-        let warning = NSTextField(labelWithString: "已钉窗口可能遮挡其他应用的菜单或输入法候选窗")
-        warning.font = .systemFont(ofSize: 11)
-        warning.textColor = .secondaryLabelColor
-        let footerSpacer = NSView()
-        let quit = actionButton("退出程序", icon: "power", action: #selector(quit))
-        quit.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
-        quit.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
-        quit.toolTip = "退出 PinTop 并取消所有置顶"
-        let footer = NSStackView(views: [warningIcon, warning, footerSpacer, quit])
-        footer.alignment = .centerY
-        footer.spacing = 7
-        addWide(footer, to: root)
+        let emptyTitle = NSTextField(labelWithString: "尚未添加窗口")
+        emptyTitle.font = .systemFont(ofSize: 14, weight: .medium)
+        let emptyDetail = NSTextField(labelWithString: "选择一个窗口，让它保持在其他窗口上方。")
+        emptyDetail.font = .systemFont(ofSize: 12)
+        emptyDetail.textColor = .secondaryLabelColor
+        let emptyButton = NSButton(title: "添加窗口…", target: self, action: #selector(startNeedle))
+        emptyButton.bezelStyle = .rounded
+        emptyButton.keyEquivalent = "\r"
+        emptyView.orientation = .vertical
+        emptyView.alignment = .centerX
+        emptyView.spacing = 8
+        [emptyTitle, emptyDetail, emptyButton].forEach(emptyView.addArrangedSubview)
+        emptyView.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(emptyView)
+        NSLayoutConstraint.activate([
+            emptyView.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            emptyView.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
+            emptyView.leadingAnchor.constraint(greaterThanOrEqualTo: root.leadingAnchor),
+            emptyView.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor)
+        ])
     }
 
-    private func addWide(_ view: NSView, to stack: NSStackView) {
-        stack.addArrangedSubview(view)
-        view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+    func numberOfRows(in tableView: NSTableView) -> Int { choices.count }
+
+    func tableView(_ tableView: NSTableView, rowViewForRow row: Int) -> NSTableRowView? {
+        let view = HoverRowView()
+        view.pinned = choices[row].pinned
+        return view
     }
 
-    private func settingRow(_ title: String, icon: String, control: NSSwitch) -> NSView {
-        let symbolView = imageView(icon, size: 15, color: .secondaryLabelColor)
-        let label = NSTextField(labelWithString: title)
-        label.font = .systemFont(ofSize: 12)
-        let spacer = NSView()
-        let row = NSStackView(views: [symbolView, label, spacer, control])
-        row.alignment = .centerY
-        row.spacing = 10
-        row.heightAnchor.constraint(equalToConstant: 28).isActive = true
-        row.widthAnchor.constraint(equalToConstant: 512).isActive = true
-        return row
-    }
-
-    private func makeRow(_ choice: Choice) -> NSView {
-        let row = NSView(frame: NSRect(x: 0, y: 0, width: 512, height: 58))
-        row.wantsLayer = true
-        if choice.pinned {
-            row.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.08).cgColor
-        }
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        let choice = choices[row]
+        let cell = NSTableCellView()
         let icon = NSImageView(image: choice.icon ?? symbol("macwindow", description: choice.appName) ?? NSImage())
         icon.imageScaling = .scaleProportionallyDown
         icon.translatesAutoresizingMaskIntoConstraints = false
-        let app = NSTextField(labelWithString: choice.appName)
-        app.font = .systemFont(ofSize: 12, weight: .semibold)
-        app.lineBreakMode = .byTruncatingTail
-        app.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let title = NSTextField(labelWithString: choice.windowTitle)
-        title.font = .systemFont(ofSize: 11)
-        title.textColor = .secondaryLabelColor
-        title.lineBreakMode = .byTruncatingMiddle
-        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        let labels = NSStackView(views: [app, title])
+        let appLabel = NSTextField(labelWithString: choice.appName)
+        appLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        appLabel.lineBreakMode = .byTruncatingTail
+        let titleText = choice.windowTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let titleLabel = NSTextField(labelWithString: titleText.isEmpty ? "无法读取窗口标题" : titleText)
+        titleLabel.font = .systemFont(ofSize: 11)
+        titleLabel.textColor = titleText.isEmpty ? .tertiaryLabelColor : .secondaryLabelColor
+        titleLabel.lineBreakMode = .byTruncatingMiddle
+        let labels = NSStackView(views: [appLabel, titleLabel])
         labels.orientation = .vertical
         labels.alignment = .leading
         labels.spacing = 2
         labels.translatesAutoresizingMaskIntoConstraints = false
-        let action = actionButton(choice.pinned ? "取消" : "置顶",
-                                  icon: choice.pinned ? "pin.slash" : "pin",
-                                  action: #selector(toggle(_:)))
-        action.tag = Int(choice.id)
-        action.translatesAutoresizingMaskIntoConstraints = false
-        row.addSubview(icon)
-        row.addSubview(labels)
-        row.addSubview(action)
+        let toggle = NSButton(image: symbol(choice.pinned ? "pin.fill" : "pin", description: "置顶") ?? NSImage(),
+                              target: self, action: #selector(toggle(_:)))
+        toggle.tag = Int(choice.id)
+        toggle.isBordered = false
+        toggle.contentTintColor = choice.pinned ? .controlAccentColor : .secondaryLabelColor
+        toggle.toolTip = choice.pinned ? "取消置顶" : "置顶"
+        toggle.setAccessibilityLabel(toggle.toolTip ?? "置顶")
+        toggle.translatesAutoresizingMaskIntoConstraints = false
+        [icon, labels, toggle].forEach(cell.addSubview)
         NSLayoutConstraint.activate([
-            row.widthAnchor.constraint(equalToConstant: 512),
-            row.heightAnchor.constraint(equalToConstant: 58),
-            icon.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 14),
-            icon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 30),
-            icon.heightAnchor.constraint(equalToConstant: 30),
-            labels.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 12),
-            labels.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            labels.trailingAnchor.constraint(lessThanOrEqualTo: action.leadingAnchor, constant: -12),
-            action.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            action.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            action.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth),
-            action.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight)
+            icon.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 10),
+            icon.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 28),
+            icon.heightAnchor.constraint(equalToConstant: 28),
+            labels.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 11),
+            labels.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            labels.trailingAnchor.constraint(lessThanOrEqualTo: toggle.leadingAnchor, constant: -10),
+            toggle.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -14),
+            toggle.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+            toggle.widthAnchor.constraint(equalToConstant: 28),
+            toggle.heightAnchor.constraint(equalToConstant: 28)
         ])
-        return row
+        return cell
     }
 
-    private func actionButton(_ title: String, icon: String, action: Selector) -> PinTopButton {
-        let button = PinTopButton(frame: .zero)
-        button.title = title
-        button.target = self
-        button.action = action
-        button.image = PinTopButton.symbol(icon, description: title)
-        return button
+    @objc private func toggle(_ sender: NSButton) { onToggle?(UInt32(sender.tag)) }
+    @objc private func doubleClickRow() {
+        let row = table.clickedRow
+        if row >= 0 && row < choices.count { onToggle?(choices[row].id) }
     }
-
-    @objc private func quit() { onQuit?() }
+    @objc private func startNeedle() { onStartNeedle?() }
+    @objc private func refresh() { onRefresh?() }
+    @objc private func requestPermission() { onRequestPermission?() }
+    @objc private func showSettings() { onShowSettings?() }
+    @objc private func showMore(_ sender: Any?) {
+        let menu = NSMenu()
+        let all = NSMenuItem(title: "全部取消置顶", action: #selector(unpinAll), keyEquivalent: "")
+        all.target = self
+        all.isEnabled = choices.contains(where: \.pinned)
+        menu.addItem(all)
+        let point = window.contentView?.convert(window.mouseLocationOutsideOfEventStream, from: nil) ?? .zero
+        menu.popUp(positioning: nil, at: point, in: window.contentView)
+    }
+    @objc private func unpinAll() { onUnpinAll?() }
 
     private func symbol(_ name: String, description: String) -> NSImage? {
         NSImage(systemSymbolName: name, accessibilityDescription: description)
     }
+}
 
-    private func imageView(_ name: String, size: CGFloat, color: NSColor) -> NSImageView {
-        let image = symbol(name, description: name)?
-            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: size, weight: .medium)) ?? NSImage()
-        let view = NSImageView(image: image)
-        view.contentTintColor = color
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.widthAnchor.constraint(equalToConstant: size + 2).isActive = true
-        view.heightAnchor.constraint(equalToConstant: size + 2).isActive = true
-        return view
+@MainActor private final class HoverRowView: NSTableRowView {
+    var pinned = false { didSet { updateBackground() } }
+    private var hovered = false { didSet { updateBackground() } }
+    private var trackingAreaRef: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        if let trackingAreaRef { removeTrackingArea(trackingAreaRef) }
+        trackingAreaRef = NSTrackingArea(rect: .zero,
+                                         options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                                         owner: self, userInfo: nil)
+        addTrackingArea(trackingAreaRef!)
+        super.updateTrackingAreas()
     }
 
-    @objc private func toggle(_ sender: NSButton) { onToggle?(UInt32(sender.tag)) }
-    @objc private func startNeedle() { onStartNeedle?() }
-    @objc private func unpinAll() { onUnpinAll?() }
-    @objc private func refresh() { onRefresh?() }
-    @objc private func requestPermission() { onRequestPermission?() }
-    @objc private func changeBadge() { onBadgeChange?(badgeSwitch.state == .on) }
-    @objc private func changeDock() { onDockChange?(dockSwitch.state == .on) }
-    @objc private func changeLogin() { onLoginChange?(loginSwitch.state == .on) }
+    override func mouseEntered(with event: NSEvent) { hovered = true }
+    override func mouseExited(with event: NSEvent) { hovered = false }
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateBackground()
+    }
+    private func updateBackground() {
+        wantsLayer = true
+        let color = pinned ? NSColor.controlAccentColor.withAlphaComponent(hovered ? 0.12 : 0.07)
+                           : NSColor.labelColor.withAlphaComponent(hovered ? 0.055 : 0)
+        layer?.backgroundColor = color.cgColor
+    }
 }

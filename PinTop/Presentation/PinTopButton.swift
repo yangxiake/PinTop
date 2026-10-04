@@ -10,20 +10,6 @@ import QuartzCore
             .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 12, weight: .semibold))
     }
 
-    enum Style {
-        case primary
-        case secondary
-        case badge
-    }
-
-    var style: Style = .secondary {
-        didSet { updateAppearance(animated: false) }
-    }
-
-    var foregroundColor: NSColor? {
-        didSet { updateAppearance(animated: false) }
-    }
-
     override var isEnabled: Bool {
         didSet { updateAppearance(animated: false) }
     }
@@ -93,19 +79,8 @@ import QuartzCore
     private func updateAppearance(animated: Bool) {
         guard let layer else { return }
         let engaged = isEnabled && (hovering || pressing)
-        let color: NSColor
-        switch style {
-        case .primary:
-            let accent = NSColor.controlAccentColor
-            color = engaged ? (accent.blended(withFraction: pressing ? 0.2 : 0.1, of: .white) ?? accent) : accent
-            contentTintColor = .white
-        case .secondary:
-            color = NSColor.labelColor.withAlphaComponent(isEnabled ? (pressing ? 0.2 : hovering ? 0.14 : 0.09) : 0.05)
-            contentTintColor = isEnabled ? (foregroundColor ?? .labelColor) : .tertiaryLabelColor
-        case .badge:
-            color = NSColor.labelColor.withAlphaComponent(pressing ? 0.2 : hovering ? 0.11 : 0)
-            contentTintColor = .labelColor
-        }
+        let color = NSColor.labelColor.withAlphaComponent(engaged ? (pressing ? 0.2 : 0.11) : 0)
+        contentTintColor = .labelColor
         let target = color.cgColor
         let shouldAnimate = animated && window != nil && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         if shouldAnimate {
