@@ -35,7 +35,7 @@ import AppKit
             let panel = panels[id] ?? makePanel(id: id, frame: frame)
             if panel.frame != frame { panel.setFrame(frame, display: true) }
             if let button = button(in: panel) {
-                button.title = frame.width < 108 ? "取消" : "已置顶 · 取消"
+                button.title = frame.width < 88 ? "取消" : "取消置顶"
             }
             if !panel.isVisible { panel.orderFrontRegardless() }
             if attachedSpaces[id] != entry.pin.auxiliarySpace && !attachingIDs.contains(id) && !failedIDs.contains(id) {
@@ -87,7 +87,7 @@ import AppKit
             }
             if panel.frame != targetFrame { panel.setFrame(targetFrame, display: true) }
             if let button = button(in: panel) {
-                let title = targetFrame.width < 108 ? "取消" : "已置顶 · 取消"
+                let title = targetFrame.width < 88 ? "取消" : "取消置顶"
                 if button.title != title { button.title = title }
             }
             if !panel.isVisible { panel.orderFrontRegardless() }
@@ -99,10 +99,10 @@ import AppKit
               let x = bounds["X"] as? Double, let y = bounds["Y"] as? Double,
               let width = bounds["Width"] as? Double,
               let main = NSScreen.screens.first else { return nil }
-        let badgeWidth = max(56, min(132, width - 12))
+        let badgeWidth = max(56, min(PinTopButton.standardWidth, width - 12))
         return NSRect(x: x + width - badgeWidth - 8,
-                      y: main.frame.maxY - y - 34,
-                      width: badgeWidth, height: 30)
+                      y: main.frame.maxY - y - PinTopButton.standardHeight - 4,
+                      width: badgeWidth, height: PinTopButton.standardHeight)
     }
 
     private func button(in panel: NSPanel) -> NSButton? {
@@ -148,18 +148,15 @@ import AppKit
         material.blendingMode = .behindWindow
         material.state = .active
         material.wantsLayer = true
-        material.layer?.cornerRadius = 9
+        material.layer?.cornerRadius = 7
         material.layer?.masksToBounds = true
         material.layer?.borderWidth = 1
         material.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.65).cgColor
         material.autoresizingMask = [.width, .height]
-        let button = NSButton(frame: NSRect(origin: .zero, size: frame.size))
-        button.image = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "已置顶")
-        button.imagePosition = .imageLeft
-        button.isBordered = false
-        button.contentTintColor = .labelColor
-        button.font = .systemFont(ofSize: 12, weight: .semibold)
-        button.title = "已置顶 · 取消"
+        let button = PinTopButton(frame: NSRect(origin: .zero, size: frame.size))
+        button.style = .badge
+        button.image = PinTopButton.symbol("pin.fill", description: "已置顶")
+        button.title = "取消置顶"
         button.autoresizingMask = [.width, .height]
         button.toolTip = "取消此窗口置顶"
         button.target = self

@@ -12,9 +12,10 @@ import AppKit
     private let window: NSWindow
     private let windowList = NSStackView()
     private let listScroll = NSScrollView()
-    private let permissionButton = NSButton()
+    private var listHeightConstraint: NSLayoutConstraint?
+    private let permissionButton = PinTopButton(frame: .zero)
     private let countLabel = NSTextField(labelWithString: "")
-    private let unpinAllButton = NSButton()
+    private let unpinAllButton = PinTopButton(frame: .zero)
     private let badgeSwitch = NSSwitch()
     private let dockSwitch = NSSwitch()
     private let loginSwitch = NSSwitch()
@@ -51,15 +52,16 @@ import AppKit
 
     func update(permission: Bool, choices: [Choice], badge: Bool, dock: Bool, login: Bool) {
         permissionButton.title = permission ? "已授权" : "需要授权"
-        permissionButton.image = symbol(permission ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
-                                        description: "辅助功能权限")
-        permissionButton.contentTintColor = permission ? .systemGreen : .systemOrange
+        permissionButton.image = PinTopButton.symbol(permission ? "checkmark.circle.fill" : "exclamationmark.circle.fill",
+                                                    description: "辅助功能权限")
+        permissionButton.foregroundColor = permission ? .systemGreen : .systemOrange
         badgeSwitch.state = badge ? .on : .off
         dockSwitch.state = dock ? .on : .off
         loginSwitch.state = login ? .on : .off
         let pinnedCount = choices.filter(\.pinned).count
         countLabel.stringValue = "\(pinnedCount) 个已置顶 · \(choices.count) 个窗口"
         unpinAllButton.isEnabled = pinnedCount > 0
+        listHeightConstraint?.constant = min(220, max(120, CGFloat(choices.count) * 58))
 
         for view in windowList.arrangedSubviews {
             windowList.removeArrangedSubview(view)
@@ -69,12 +71,12 @@ import AppKit
             let empty = NSTextField(labelWithString: "当前桌面没有可置顶的普通窗口")
             empty.textColor = .secondaryLabelColor
             empty.alignment = .center
-            empty.frame = NSRect(x: 0, y: 0, width: 500, height: 58)
+            empty.frame = NSRect(x: 0, y: 0, width: 512, height: 58)
             windowList.addArrangedSubview(empty)
         } else {
             for choice in choices { windowList.addArrangedSubview(makeRow(choice)) }
         }
-        windowList.setFrameSize(NSSize(width: 500,
+        windowList.setFrameSize(NSSize(width: 512,
                                         height: max(220, CGFloat(max(choices.count, 1)) * 58)))
         windowList.needsLayout = true
         window.contentView?.layoutSubtreeIfNeeded()
@@ -122,8 +124,8 @@ import AppKit
         titleStack.alignment = .leading
         titleStack.spacing = 2
         let headerSpacer = NSView()
-        permissionButton.bezelStyle = .rounded
-        permissionButton.imagePosition = .imageLeft
+        permissionButton.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
+        permissionButton.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
         permissionButton.target = self
         permissionButton.action = #selector(requestPermission)
         let header = NSStackView(views: [mark, titleStack, headerSpacer, permissionButton])
@@ -132,18 +134,16 @@ import AppKit
         addWide(header, to: root)
 
         let choose = actionButton("选择窗口", icon: "pin.fill", action: #selector(startNeedle))
-        choose.isBordered = false
-        choose.wantsLayer = true
-        choose.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
-        choose.layer?.cornerRadius = 8
-        choose.contentTintColor = .white
-        choose.heightAnchor.constraint(equalToConstant: 28).isActive = true
-        choose.widthAnchor.constraint(equalToConstant: 100).isActive = true
+        choose.style = .primary
+        choose.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
+        choose.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
         let refresh = actionButton("刷新", icon: "arrow.clockwise", action: #selector(refresh))
+        refresh.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
+        refresh.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
         unpinAllButton.title = "全部取消"
-        unpinAllButton.image = symbol("pin.slash", description: "取消置顶")
-        unpinAllButton.imagePosition = .imageLeft
-        unpinAllButton.bezelStyle = .rounded
+        unpinAllButton.image = PinTopButton.symbol("pin.slash", description: "取消置顶")
+        unpinAllButton.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight).isActive = true
+        unpinAllButton.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth).isActive = true
         unpinAllButton.target = self
         unpinAllButton.action = #selector(unpinAll)
         let actionSpacer = NSView()
@@ -172,10 +172,11 @@ import AppKit
         windowList.orientation = .vertical
         windowList.alignment = .leading
         windowList.spacing = 0
-        windowList.frame = NSRect(x: 0, y: 0, width: 500, height: 220)
+        windowList.frame = NSRect(x: 0, y: 0, width: 512, height: 220)
         listScroll.documentView = windowList
         addWide(listScroll, to: root)
-        listScroll.heightAnchor.constraint(equalToConstant: 220).isActive = true
+        listHeightConstraint = listScroll.heightAnchor.constraint(equalToConstant: 220)
+        listHeightConstraint?.isActive = true
 
         let settingsTitle = NSTextField(labelWithString: "偏好设置")
         settingsTitle.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -228,7 +229,7 @@ import AppKit
     }
 
     private func makeRow(_ choice: Choice) -> NSView {
-        let row = NSView(frame: NSRect(x: 0, y: 0, width: 500, height: 58))
+        let row = NSView(frame: NSRect(x: 0, y: 0, width: 512, height: 58))
         row.wantsLayer = true
         if choice.pinned {
             row.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.08).cgColor
@@ -259,7 +260,7 @@ import AppKit
         row.addSubview(labels)
         row.addSubview(action)
         NSLayoutConstraint.activate([
-            row.widthAnchor.constraint(equalToConstant: 500),
+            row.widthAnchor.constraint(equalToConstant: 512),
             row.heightAnchor.constraint(equalToConstant: 58),
             icon.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 14),
             icon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
@@ -268,19 +269,20 @@ import AppKit
             labels.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 12),
             labels.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             labels.trailingAnchor.constraint(lessThanOrEqualTo: action.leadingAnchor, constant: -12),
-            action.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -15),
+            action.trailingAnchor.constraint(equalTo: row.trailingAnchor),
             action.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            action.widthAnchor.constraint(equalToConstant: 78)
+            action.widthAnchor.constraint(equalToConstant: PinTopButton.standardWidth),
+            action.heightAnchor.constraint(equalToConstant: PinTopButton.standardHeight)
         ])
         return row
     }
 
-    private func actionButton(_ title: String, icon: String, action: Selector) -> NSButton {
-        let button = NSButton(title: title, target: self, action: action)
-        button.image = symbol(icon, description: title)
-        button.imagePosition = .imageLeft
-        button.imageHugsTitle = true
-        button.bezelStyle = .rounded
+    private func actionButton(_ title: String, icon: String, action: Selector) -> PinTopButton {
+        let button = PinTopButton(frame: .zero)
+        button.title = title
+        button.target = self
+        button.action = action
+        button.image = PinTopButton.symbol(icon, description: title)
         return button
     }
 
